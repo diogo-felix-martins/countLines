@@ -3,45 +3,31 @@
 #include <dirent.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
+#define _BSD_SOURCE
 #define GetCurrentDir getcwd
+int totalLines = 0;
 
-char* countDirectoryFiles(char* cwd, char* argv[], _Bool* isRecursive);
-
-// Checks if the file is to be counted by checking the argv array until the -e flag.
-_Bool fileIncluded (char* fileName, char* argv[]);
-
-// Counts the number of lines of a single file.
-int countLinesOfFile(char *fileName);
-
-int main(int argc, char* argv[])
+// Check if -r flag exists
+bool checkArgumentsForRecursive(int* argc, char* argv[])
 {
-_Bool* isRecursive = (_Bool *)malloc(sizeof(_Bool));
+bool isRecursive = false;
 
-            if ( strcmp(argv[argc-1], "-r") == 0)
-                *isRecursive = 1;
-                        
-            char cwd[PATH_MAX];
-            if (getcwd(cwd, sizeof(cwd)) != NULL) 
-            {
-                countDirectoryFiles(cwd, argv, isRecursive); // Count lines of files in the current working directory
+            for ( int i = 1 ; i < *argc ; i++){
+                if (strstr(argv[i], "-r") != NULL)
+                    isRecursive = true;
             }
-            else
-            {
-                printf("Failed to get working directory.");
-            }
-
-            return 0;
 }
 
 // Checks if the file is to be counted by checking the argv array until the -e flag.
-_Bool fileIncluded (char* fileName, char* argv[])
+bool fileIncluded (char* fileName, char* argv[])
 {
-_Bool isIncluded = 0;
+bool isIncluded = false;
 
             // i starts at 1 to ignore the executable
             for ( int i = 1 ; strcmp(argv[i], "-e") != 0 ; i++){
                 if (strstr(fileName, argv[i]) != NULL)
-                    isIncluded = 1;
+                    isIncluded = true;
             }
             
             return isIncluded;
@@ -72,8 +58,21 @@ FILE *fp;
             return lineCount;
 }
 
+// Joins the file path and file name
+char* joinFileName(char* filePath, char* fileName)
+{
+char* joinedFileName;
+
+            char* tmpCWD = malloc(2 + strlen(filePath) + strlen(fileName)); // tmpCWD size is cwd + / + d_name + \0
+            strcpy(tmpCWD, filePath);
+            joinedFileName = strcat(strcat(tmpCWD, "/"), fileName);
+
+            return joinedFileName;
+
+}
+
 // Counts the number of lines of the files present in the directory
-char* countDirectoryFiles(char* cwd, char* argv[], _Bool* isRecursive){
+char* countDirectoryFiles(char* cwd, char* argv[], const bool isRecursive){
 struct dirent *pDirent;
 DIR *pDir;
 
@@ -85,27 +84,45 @@ DIR *pDir;
             
             // Count each file and if there is a directory call the function on it
             while ((pDirent = readdir(pDir)) != NULL) {
-                if (pDirent->d_type == 4 && *isRecursive) // If it is a directory
-                {
-                    if (strcmp(pDirent->d_name, ".") !=0 && strcmp(pDirent->d_name, "..") !=0){
-                        char* tmpCWD = malloc(2 + strlen(cwd) + strlen(pDirent->d_name)); // tmpCWD size is cwd + / + d_name + \0
-                        strcpy(tmpCWD, cwd);
-                        countDirectoryFiles(strcat( strcat(tmpCWD, "/"), pDirent->d_name), argv, isRecursive);
-                        free(tmpCWD);
-                    }
-                }                    
-                else
-                {
-                    if (fileIncluded(pDirent->d_name, argv))
-                    {
-                        char* tmpCWD = malloc(2 + strlen(cwd) + strlen(pDirent->d_name)); // tmpCWD size is cwd + / + d_name + \0
-                        strcpy(tmpCWD, cwd);
-                        countLinesOfFile ( strcat( strcat(tmpCWD, "/"), pDirent->d_name));
-                        free(tmpCWD);
-                        //countLinesOfFile (pDirent->d_name);
-                    }
+                switch (pDirent->d_type){
+                    case DT_DIR: // Directory
+                        if (isRecursive && strcmp(pDirent->d_name, ".") !=0 && strcmp(pDirent->d_name, "..") !=0)
+                        {
+                            countDirectoryFiles(joinFileName(cwd, pDirent->d_name), argv, isRecursive);
+                        }
+                        break;
+
+                    case DT_REG: // Regular file
+                        if (fileIncluded(pDirent->d_name, argv))
+                        {
+                            totalLines += countLinesOfFile (joinFileName(cwd, pDirent->d_name));
+                        }
+                        break;
+
+                    default:
+                        printf("Unintended file type.");
                 }
             }
 
             closedir (pDir);
+}
+
+
+int main(int argc, char* argv[])
+{
+bool isRecursive = checkArgumentsForRecursive(&argc, argv);
+                        
+            char cwd[PATH_MAX];
+            if (getcwd(cwd, sizeof(cwd)) != NULL) 
+            {
+                countDirectoryFiles(cwd, argv, isRecursive); // Count lines of files in the current working directory
+            }
+            else
+            {
+                printf("Failed to get working directory.");
+            }
+
+            printf("\nTotal lines: %d", totalLines);
+
+            return 0;
 }
