@@ -17,6 +17,8 @@ bool isRecursive = false;
                 if (strstr(argv[i], "-r") != NULL)
                     isRecursive = true;
             }
+
+            return isRecursive;
 }
 
 // Checks if the file is to be counted by checking the argv array until the -e flag.
