@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
@@ -75,13 +76,37 @@ char* joinedFileName;
 
 }
 
-void updateDirectoryList(char* newDir)
+// Counts the number of lines of the files present in the directory
+void countDirectoryFiles(char* cwd, char* argv[])
+{
+struct dirent *pDirent;
+DIR *pDir;
+
+            pDir = opendir (cwd);
+            if (pDir == NULL) {
+                printf ("Cannot open directory '%s'\n", cwd);
+                exit(EXIT_FAILURE);
+            }
+            
+            // Count each file and if there is a directory call the function on it
+            while ((pDirent = readdir(pDir)) != NULL) {
+                if (pDirent->d_type == DT_REG && fileIncluded(pDirent->d_name, argv)) // If it is a regular file
+                {
+                    totalLines += countLinesOfFile (joinFileName(cwd, pDirent->d_name));
+                }
+            }
+
+            closedir (pDir);
+}
+
+void updateDirectoryList(char* newDir, char* argv[])
 {     
             strcpy(dirList[totalSubDirectories], newDir);
             totalSubDirectories++;
+            countDirectoryFiles(newDir, argv);
 }
 
-bool fetchAllDirectories(char* cwd)
+bool fetchAllDirectories(char* cwd, char* argv[])
 {
 struct dirent *pDirent;
 DIR *pDir;
@@ -98,36 +123,13 @@ bool dirListUpdated = false;
             while ((pDirent = readdir(pDir)) != NULL) {
                 if (pDirent->d_type == DT_DIR && strcmp(pDirent->d_name, ".") !=0 && strcmp(pDirent->d_name, "..") !=0 && pDirent->d_name[0] != '.') // If it is a directory with a name different than . and .. or starting with .
                 {
-                    updateDirectoryList(joinFileName(cwd, pDirent->d_name));
+                    updateDirectoryList(joinFileName(cwd, pDirent->d_name), argv);
                     dirListUpdated = true;
                 }
             }
 
             closedir (pDir);
             return dirListUpdated;
-}
-
-// Counts the number of lines of the files present in the directory
-void countDirectoryFiles(char* cwd, char* argv[])
-{
-struct dirent *pDirent;
-DIR *pDir;
-
-            pDir = opendir (cwd);
-            if (pDir == NULL) {
-                printf ("Cannot open directory '%s'\n", argv[1]);
-                exit(EXIT_FAILURE);
-            }
-            
-            // Count each file and if there is a directory call the function on it
-            while ((pDirent = readdir(pDir)) != NULL) {
-                if (pDirent->d_type == DT_REG && fileIncluded(pDirent->d_name, argv)) // If it is a regular file
-                {
-                    totalLines += countLinesOfFile (joinFileName(cwd, pDirent->d_name));
-                }
-            }
-
-            closedir (pDir);
 }
 
 int main(int argc, char* argv[])
@@ -141,17 +143,13 @@ bool dirListUpdated = true;
             {
                 if (isRecursive) // Count files in all directories
                 {
-                    updateDirectoryList(cwd); 
+                    updateDirectoryList(cwd, argv); 
                     int aux = totalSubDirectories;
                     while(dirListUpdated){
                         for (int i=aux; i<totalSubDirectories; i++)
-                            dirListUpdated = fetchAllDirectories(dirList[i]);
+                            dirListUpdated = fetchAllDirectories(dirList[i], argv);
 
                         aux = totalSubDirectories-1;
-                    }
-
-                    for (int i = 0; i<totalSubDirectories; i++){
-                        countDirectoryFiles(dirList[i], argv);
                     }
                 }
                 else
