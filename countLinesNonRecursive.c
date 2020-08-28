@@ -8,8 +8,59 @@
 #define _BSD_SOURCE
 #define GetCurrentDir getcwd
 int totalLines = 0;
-int totalSubDirectories = 0;
-char dirList[100][PATH_MAX];
+
+// ****************************
+//      STAK IMPLEMENTATION
+// ****************************
+/*
+AUTHOR: MATTHIAS VAN GESTEL - maregt0@gmail.com
+Belgium - Lessius - Denayer
+--------------------------------------------------------*/
+
+#define DATASIZE PATH_MAX
+
+typedef struct FenNode{
+	char data[DATASIZE];
+	struct FenNode *previousNode;
+}FenNode;
+
+FenNode *topStackPointer = NULL;
+FenNode *lastDirectoryChecked = NULL;
+
+void printStack(void){
+	printf("***FenStack***\n");
+	printf("**************\n");
+	int numberoffNodes = 0;
+	FenNode *TempPointer = topStackPointer;
+	while(TempPointer != NULL){
+		numberoffNodes++;
+		printf("%s\n",TempPointer->data);
+		TempPointer = TempPointer->previousNode;
+	};
+	printf("**************\n");
+	printf("Counted %d Nodes\n",numberoffNodes);
+	printf("***FenStack***\n");
+	return;
+}
+
+int pop(char returnString[]){
+	if(topStackPointer == NULL) return 0;
+	strcpy(returnString,topStackPointer->data);
+	FenNode *PreviousNodePointer = topStackPointer->previousNode;
+	free(topStackPointer);
+	topStackPointer = PreviousNodePointer;
+	return 1;
+}
+
+int push(char data[]){
+	FenNode *NewNodePointer = malloc(sizeof(FenNode));
+	if(!NewNodePointer) return 0;
+	strcpy(NewNodePointer->data,data);
+	NewNodePointer->previousNode = 	topStackPointer;
+	topStackPointer = NewNodePointer;
+	return 1;
+}
+
 
 // Check if -r flag exists
 bool checkArgumentsForRecursive(int* argc, char* argv[])
@@ -101,8 +152,7 @@ DIR *pDir;
 
 void updateDirectoryList(char* newDir, char* argv[])
 {     
-            strcpy(dirList[totalSubDirectories], newDir);
-            totalSubDirectories++;
+            push(newDir); // Add new dir to the string stack
             countDirectoryFiles(newDir, argv);
 }
 
@@ -142,14 +192,15 @@ bool dirListUpdated = true;
             if (getcwd(cwd, sizeof(cwd)) != NULL) 
             {
                 if (isRecursive) // Count files in all directories
-                {
-                    updateDirectoryList(cwd, argv); 
-                    int aux = totalSubDirectories;
-                    while(dirListUpdated){
-                        for (int i=aux; i<totalSubDirectories; i++)
-                            dirListUpdated = fetchAllDirectories(dirList[i], argv);
-
-                        aux = totalSubDirectories-1;
+                {   
+                    updateDirectoryList(cwd, argv);
+                    
+                    while(dirListUpdated)
+                    {
+                        FenNode *stackReaderPointer = topStackPointer;
+                        
+                        dirListUpdated = fetchAllDirectories(stackReaderPointer->data, argv);
+                        stackReaderPointer = stackReaderPointer->previousNode;
                     }
                 }
                 else
@@ -162,7 +213,7 @@ bool dirListUpdated = true;
                 printf("Failed to get working directory.");
             }
 
-            printf("\nTotal lines: %d", totalLines);
+            printf("\nTotal lines: %d\n", totalLines);
 
             return 0;
 }
