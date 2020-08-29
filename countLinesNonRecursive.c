@@ -195,12 +195,11 @@ bool dirListUpdated = true;
                 {   
                     updateDirectoryList(cwd, argv);
                     
-                    while(dirListUpdated)
-                    {
-                        FenNode *stackReaderPointer = topStackPointer;
-                        
-                        dirListUpdated = fetchAllDirectories(stackReaderPointer->data, argv);
-                        stackReaderPointer = stackReaderPointer->previousNode;
+                    while(topStackPointer != NULL)
+                    {                     
+                        char returnString[PATH_MAX];
+                        pop(returnString);
+                        dirListUpdated = fetchAllDirectories(returnString, argv);
                     }
                 }
                 else
