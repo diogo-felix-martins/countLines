@@ -160,7 +160,6 @@ bool fetchAllDirectories(char* cwd, char* argv[])
 {
 struct dirent *pDirent;
 DIR *pDir;
-bool dirListUpdated = false;
 
             pDir = opendir (cwd);
             
@@ -171,23 +170,17 @@ bool dirListUpdated = false;
             
             // If there is a directory add it to the list
             while ((pDirent = readdir(pDir)) != NULL) {
-                if (pDirent->d_type == DT_DIR && strcmp(pDirent->d_name, ".") !=0 && strcmp(pDirent->d_name, "..") !=0 && pDirent->d_name[0] != '.') // If it is a directory with a name different than . and .. or starting with .
-                {
+                if (pDirent->d_type == DT_DIR && pDirent->d_name[0] != '.') // If it is a directory with a name that does not start with a "."
                     updateDirectoryList(joinFileName(cwd, pDirent->d_name), argv);
-                    dirListUpdated = true;
-                }
             }
 
             closedir (pDir);
-            return dirListUpdated;
 }
 
 int main(int argc, char* argv[])
 {
 bool isRecursive = checkArgumentsForRecursive(&argc, argv);
-bool dirListUpdated = true;
-            
-            char cwd[PATH_MAX];
+char cwd[PATH_MAX];
             
             if (getcwd(cwd, sizeof(cwd)) != NULL) 
             {
@@ -199,7 +192,7 @@ bool dirListUpdated = true;
                     {                     
                         char returnString[PATH_MAX];
                         pop(returnString);
-                        dirListUpdated = fetchAllDirectories(returnString, argv);
+                        fetchAllDirectories(returnString, argv);
                     }
                 }
                 else
